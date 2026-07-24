@@ -5,9 +5,11 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.db.models import Q
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
 from django.views.generic import CreateView, DetailView, ListView
+
 
 from inventario.models import Producto
 
@@ -20,6 +22,22 @@ class VentaListView(LoginRequiredMixin, ListView):
     template_name = 'ventas/venta_list.html'
     context_object_name = 'ventas'
     paginate_by = 10
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        busqueda = self.request.GET.get('q', '').strip()
+
+        if busqueda:
+            queryset = queryset.filter(
+                Q(id__icontains=busqueda)
+            )
+
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['busqueda'] = self.request.GET.get('q', '')
+        return context
 
 
 class VentaDetailView(LoginRequiredMixin, DetailView):
