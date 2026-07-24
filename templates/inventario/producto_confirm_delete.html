@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+
+{% block title %}Eliminar Producto - SophiFashion{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="bi bi-trash"></i> Eliminar Producto</h1>
+</div>
+
+<div class="row">
+    <div class="col-lg-6">
+        <div class="card border-danger">
+            <div class="card-body">
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    ¿Está seguro de eliminar el producto <strong>{{ object.nombre }}</strong>?
+                    Esta acción no se puede deshacer.
+                </div>
+
+                <ul class="list-group list-group-flush mb-3">
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Precio Venta</span>
+                        <strong>${{ object.precio_venta }}</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Stock</span>
+                        <strong>{{ object.stock }}</strong>
+                    </li>
+                </ul>
+
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-danger">
+                            <i class="bi bi-trash"></i> Confirmar Eliminación
+                        </button>
+                        <a href="{% url 'producto_list' %}" class="btn btn-outline-secondary">Cancelar</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

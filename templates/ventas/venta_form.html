@@ -1,0 +1,343 @@
+{% extends 'base.html' %}
+
+{% block title %}Nueva Venta - Tienda de Ropa{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="bi bi-cart-plus"></i> Nueva Venta</h1>
+    <p class="text-muted mb-0">Seleccione productos y cantidades — el precio se calcula automáticamente</p>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-basket"></i> Productos de la venta
+            </div>
+            <div class="card-body">
+                <form method="post" id="ventaForm" novalidate>
+                    {% csrf_token %}
+
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+                    </div>
+                    {% endif %}
+
+                    {{ formset.management_form }}
+
+                    {% if formset.non_form_errors %}
+                    <div class="alert alert-danger">
+                        {% for error in formset.non_form_errors %}{{ error }}{% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <!-- Encabezados de columnas -->
+                    <div class="row g-2 mb-2 d-none d-md-flex text-muted small fw-semibold px-1">
+                        <div class="col-md-5">Producto</div>
+                        <div class="col-md-2">Cantidad</div>
+                        <div class="col-md-2">Precio unitario</div>
+                        <div class="col-md-2">Subtotal</div>
+                        <div class="col-md-1"></div>
+                    </div>
+
+                    <div id="detalle-container">
+                        {% for detalle_form in formset %}
+                        <div class="detalle-row" data-form-index="{{ forloop.counter0 }}">
+                            {% for hidden in detalle_form.hidden_fields %}{{ hidden }}{% endfor %}
+
+                            <div class="row align-items-start g-2">
+                                <div class="col-md-5">
+                                    <label class="form-label d-md-none">Producto *</label>
+                                    {{ detalle_form.producto }}
+                                    {% if detalle_form.producto.errors %}
+                                    <div class="text-danger small">{{ detalle_form.producto.errors.0 }}</div>
+                                    {% endif %}
+                                    <small class="text-muted stock-info d-none"></small>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label d-md-none">Cantidad *</label>
+                                    {{ detalle_form.cantidad }}
+                                    {% if detalle_form.cantidad.errors %}
+                                    <div class="text-danger small">{{ detalle_form.cantidad.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label d-md-none">Precio unitario</label>
+                                    <input type="text" class="form-control precio-display bg-light" readonly value="$0.00">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label d-md-none">Subtotal</label>
+                                    <input type="text" class="form-control subtotal-display bg-light fw-semibold" readonly value="$0.00">
+                                </div>
+                                <div class="col-md-1 text-end">
+                                    {% if formset.can_delete %}
+                                    <button type="button" class="btn btn-sm btn-outline-danger btn-remove-row mt-md-4" title="Eliminar fila">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                    {{ detalle_form.DELETE.as_hidden }}
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="calculo-texto small text-muted mt-1 ms-1"></div>
+                            {% if detalle_form.non_field_errors %}
+                            <div class="text-danger small mt-1">{{ detalle_form.non_field_errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <button type="button" id="addDetalle" class="btn btn-outline-primary btn-sm mt-3">
+                        <i class="bi bi-plus-lg"></i> Agregar otro producto
+                    </button>
+
+                    <div class="d-flex gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg"></i> Registrar Venta
+                        </button>
+                        <a href="{% url 'venta_list' %}" class="btn btn-outline-secondary">Cancelar</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Panel resumen -->
+    <div class="col-lg-4">
+        <div class="card sticky-top" style="top: 1rem;">
+            <div class="card-header bg-primary text-white">
+                <i class="bi bi-calculator"></i> Resumen de la venta
+            </div>
+            <div class="card-body p-0">
+                <div id="resumen-lineas" class="list-group list-group-flush">
+                    <div class="list-group-item text-muted text-center py-4" id="resumen-vacio">
+                        Seleccione productos para ver el cálculo
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer bg-light">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="fs-5 fw-bold">Total:</span>
+                    <span class="fs-3 fw-bold text-primary" id="totalVenta">$0.00</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Template para nuevas filas -->
+<template id="detalle-template">
+    <div class="detalle-row" data-form-index="__prefix__">
+        <div class="row align-items-start g-2">
+            <div class="col-md-5">
+                <label class="form-label d-md-none">Producto *</label>
+                <select name="detalles-__prefix__-producto" id="id_detalles-__prefix__-producto"
+                        class="form-select producto-select">
+                    <option value="">Seleccione un producto</option>
+                    {% for producto in productos %}
+                    <option value="{{ producto.pk }}"
+                            data-precio="{{ producto.precio_venta }}"
+                            data-stock="{{ producto.stock }}">
+                        {{ producto.nombre }} — ${{ producto.precio_venta }} (Stock: {{ producto.stock }})
+                    </option>
+                    {% endfor %}
+                </select>
+                <small class="text-muted stock-info d-none"></small>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label d-md-none">Cantidad *</label>
+                <input type="number" name="detalles-__prefix__-cantidad"
+                       id="id_detalles-__prefix__-cantidad"
+                       class="form-control cantidad-input" min="1" value="1">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label d-md-none">Precio unitario</label>
+                <input type="text" class="form-control precio-display bg-light" readonly value="$0.00">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label d-md-none">Subtotal</label>
+                <input type="text" class="form-control subtotal-display bg-light fw-semibold" readonly value="$0.00">
+            </div>
+            <div class="col-md-1 text-end">
+                <button type="button" class="btn btn-sm btn-outline-danger btn-remove-row mt-md-4" title="Eliminar fila">
+                    <i class="bi bi-trash"></i>
+                </button>
+                <input type="hidden" name="detalles-__prefix__-id" id="id_detalles-__prefix__-id">
+                <input type="hidden" name="detalles-__prefix__-DELETE" id="id_detalles-__prefix__-DELETE" value="">
+            </div>
+        </div>
+        <div class="calculo-texto small text-muted mt-1 ms-1"></div>
+    </div>
+</template>
+
+{{ productos|json_script:"productos-data" }}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    const productosData = JSON.parse(document.getElementById('productos-data').textContent);
+    const preciosProductos = {};
+    productosData.forEach(p => {
+        preciosProductos[p.pk] = {
+            precio: parseFloat(p.precio_venta),
+            stock: parseInt(p.stock),
+            nombre: p.nombre,
+        };
+    });
+
+    function formatMoney(value) {
+        return '$' + parseFloat(value || 0).toLocaleString('es-CO', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        });
+    }
+
+    function getProductoInfo(select) {
+        const id = select.value;
+        if (id && preciosProductos[id]) {
+            return preciosProductos[id];
+        }
+        const opt = select.options[select.selectedIndex];
+        if (opt && opt.value) {
+            return {
+                precio: parseFloat(opt.dataset.precio || 0),
+                stock: parseInt(opt.dataset.stock || 0),
+                nombre: opt.text.split(' — ')[0],
+            };
+        }
+        return null;
+    }
+
+    function calcularFila(row) {
+        const select = row.querySelector('.producto-select');
+        const cantidadInput = row.querySelector('.cantidad-input');
+        const precioDisplay = row.querySelector('.precio-display');
+        const subtotalDisplay = row.querySelector('.subtotal-display');
+        const calculoTexto = row.querySelector('.calculo-texto');
+        const stockInfo = row.querySelector('.stock-info');
+        const deleteInput = row.querySelector('[name$="-DELETE"]');
+
+        if (deleteInput && deleteInput.value === 'on') {
+            row.style.display = 'none';
+            return null;
+        }
+
+        row.style.display = '';
+        const cantidad = parseInt(cantidadInput.value) || 0;
+        const info = getProductoInfo(select);
+
+        if (!info || !select.value) {
+            precioDisplay.value = '$0.00';
+            subtotalDisplay.value = '$0.00';
+            calculoTexto.textContent = '';
+            stockInfo.classList.add('d-none');
+            return null;
+        }
+
+        const precio = info.precio;
+        const subtotal = precio * cantidad;
+
+        precioDisplay.value = formatMoney(precio);
+        subtotalDisplay.value = formatMoney(subtotal);
+
+        calculoTexto.innerHTML =
+            '<i class="bi bi-calculator"></i> ' +
+            cantidad + ' × ' + formatMoney(precio) + ' = <strong>' + formatMoney(subtotal) + '</strong>';
+
+        stockInfo.textContent = 'Stock disponible: ' + info.stock + ' unidades';
+        stockInfo.classList.remove('d-none');
+
+        if (cantidad > info.stock) {
+            stockInfo.className = 'stock-info text-danger fw-semibold';
+            stockInfo.textContent = '⚠ Stock insuficiente. Disponible: ' + info.stock;
+            cantidadInput.classList.add('is-invalid');
+        } else {
+            stockInfo.className = 'stock-info text-muted';
+            cantidadInput.classList.remove('is-invalid');
+        }
+
+        return {
+            nombre: info.nombre,
+            cantidad: cantidad,
+            precio: precio,
+            subtotal: subtotal,
+        };
+    }
+
+    function actualizarResumen() {
+        const lineas = [];
+        let total = 0;
+
+        document.querySelectorAll('.detalle-row').forEach(row => {
+            const resultado = calcularFila(row);
+            if (resultado) {
+                lineas.push(resultado);
+                total += resultado.subtotal;
+            }
+        });
+
+        const resumenContainer = document.getElementById('resumen-lineas');
+        const resumenVacio = document.getElementById('resumen-vacio');
+
+        if (lineas.length === 0) {
+            resumenContainer.innerHTML =
+                '<div class="list-group-item text-muted text-center py-4" id="resumen-vacio">' +
+                'Seleccione productos para ver el cálculo</div>';
+        } else {
+            resumenContainer.innerHTML = lineas.map(l => `
+                <div class="list-group-item">
+                    <div class="d-flex justify-content-between">
+                        <span class="fw-semibold">${l.nombre}</span>
+                        <span class="text-primary fw-bold">${formatMoney(l.subtotal)}</span>
+                    </div>
+                    <small class="text-muted">${l.cantidad} × ${formatMoney(l.precio)}</small>
+                </div>
+            `).join('');
+        }
+
+        document.getElementById('totalVenta').textContent = formatMoney(total);
+    }
+
+    function bindRowEvents(row) {
+        row.querySelector('.producto-select')?.addEventListener('change', actualizarResumen);
+        row.querySelector('.cantidad-input')?.addEventListener('input', actualizarResumen);
+
+        row.querySelector('.btn-remove-row')?.addEventListener('click', function() {
+            const deleteInput = row.querySelector('[name$="-DELETE"]');
+            if (deleteInput) {
+                deleteInput.value = 'on';
+            }
+            row.style.display = 'none';
+            actualizarResumen();
+        });
+    }
+
+    document.querySelectorAll('.detalle-row').forEach(row => {
+        bindRowEvents(row);
+        const select = row.querySelector('.producto-select');
+        Array.from(select?.options || []).forEach(opt => {
+            if (opt.value && preciosProductos[opt.value]) {
+                opt.dataset.precio = preciosProductos[opt.value].precio;
+                opt.dataset.stock = preciosProductos[opt.value].stock;
+            }
+        });
+    });
+
+    document.getElementById('addDetalle').addEventListener('click', function() {
+        const totalForms = document.getElementById('id_detalles-TOTAL_FORMS');
+        const formIdx = parseInt(totalForms.value);
+        const template = document.getElementById('detalle-template').innerHTML;
+        document.getElementById('detalle-container').insertAdjacentHTML(
+            'beforeend',
+            template.replace(/__prefix__/g, formIdx)
+        );
+        totalForms.value = formIdx + 1;
+        bindRowEvents(document.getElementById('detalle-container').lastElementChild);
+        actualizarResumen();
+    });
+
+    actualizarResumen();
+})();
+</script>
+{% endblock %}
