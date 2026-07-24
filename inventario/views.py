@@ -101,6 +101,23 @@ class MovimientoListView(LoginRequiredMixin, ListView):
     context_object_name = 'movimientos'
     paginate_by = 10
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        busqueda = self.request.GET.get('q', '').strip()
+
+        if busqueda:
+            queryset = queryset.filter(
+                Q(producto__nombre__icontains=busqueda) |
+                Q(tipo_movimiento__icontains=busqueda) |
+                Q(observacion__icontains=busqueda)
+            )
+
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['busqueda'] = self.request.GET.get('q', '')
+        return context
 
 class MovimientoCreateView(LoginRequiredMixin, CreateView):
     model = MovimientoInventario
